@@ -1,4 +1,3 @@
-# app.py
 import json
 from pathlib import Path
 
@@ -6,38 +5,27 @@ import pandas as pd
 import streamlit as st
 from PIL import Image, ImageFile
 
-# ---- Pillow safety and robust image opener ----
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def open_image_safely(path: Path, max_side: int = 2400) -> Image.Image:
-    """
-    Open an image with Pillow and downscale it in memory if it is very large.
-    This helps avoid DecompressionBombError and reduces memory usage.
-    """
     image = Image.open(path)
     image.thumbnail((max_side, max_side))
     return image
 
-# ---- Streamlit page configuration ----
 st.set_page_config(page_title="Tehran Weather – Machine Learning Dashboard", layout="wide")
 ARTIFACTS_DIRECTORY = Path("artifacts")
 
 st.title("Tehran Weather – Machine Learning Dashboard")
 
-# ======================================================================================
-# Section: Data
-# ======================================================================================
 st.header("Data")
 
 merged_path = ARTIFACTS_DIRECTORY / "merged_data_with_additional_features.csv"
 if merged_path.exists():
-    # Robust CSV read and cleanup of accidental index columns
     df_merged = pd.read_csv(merged_path, low_memory=False)
     index_like_cols = [c for c in df_merged.columns if c.lower().startswith("unnamed")]
     if index_like_cols:
         df_merged = df_merged.drop(columns=index_like_cols)
 
-    # Detect and parse date column if present
     date_column_name = "date" if "date" in df_merged.columns else None
     if date_column_name:
         df_merged[date_column_name] = pd.to_datetime(df_merged[date_column_name], errors="coerce")
@@ -45,7 +33,6 @@ if merged_path.exists():
     with st.expander("Preview of merged data (first 50 rows)"):
         st.dataframe(df_merged.head(50), use_container_width=True)
 
-    # Quick time‑series chart for any numeric column against the date column
     if date_column_name and pd.api.types.is_datetime64_any_dtype(df_merged[date_column_name]):
         st.subheader("Quick line chart")
         numeric_columns = [
@@ -58,16 +45,12 @@ if merged_path.exists():
 else:
     st.info("Merged dataset not found. Please run the notebook export cell to create the artifacts directory and files.")
 
-# ======================================================================================
-# Section: Correlations with tmax_tehran
-# ======================================================================================
 st.header("Correlations with tmax_tehran")
 
 correlation_path = ARTIFACTS_DIRECTORY / "correlation_with_tmax_of_Tehran.csv"
 if correlation_path.exists():
     df_correlation = pd.read_csv(correlation_path, index_col=0)
     if df_correlation.shape[1] >= 1:
-        # Convert single-column DataFrame to Series
         correlation_series = df_correlation.iloc[:, 0]
         st.subheader("Correlation table")
         st.dataframe(
@@ -84,13 +67,9 @@ if correlation_path.exists():
 else:
     st.info("Correlation file not found.")
 
-# ======================================================================================
-# Section: Key Performance Indicators (no abbreviation)
-# ======================================================================================
 st.header("Key Performance Indicators")
 kpi_columns = st.columns(3)
 
-# Basic metrics (mean and standard deviation)
 basic_metrics_path = ARTIFACTS_DIRECTORY / "metrics_basic.json"
 if basic_metrics_path.exists():
     metrics_basic = json.loads(basic_metrics_path.read_text(encoding="utf-8"))
@@ -101,7 +80,6 @@ if basic_metrics_path.exists():
 else:
     kpi_columns[0].caption("metrics_basic.json not found.")
 
-# Best model summary
 best_summary_path = ARTIFACTS_DIRECTORY / "best_model_summary.json"
 if best_summary_path.exists():
     best_summary = json.loads(best_summary_path.read_text(encoding="utf-8"))
@@ -121,9 +99,6 @@ if best_summary_path.exists():
 else:
     kpi_columns[2].caption("best_model_summary.json not found.")
 
-# ======================================================================================
-# Section: Model performance and timing
-# ======================================================================================
 st.header("Model performance and timing")
 
 performance_csv = ARTIFACTS_DIRECTORY / "model_performance.csv"
@@ -144,31 +119,21 @@ with right_col:
     else:
         st.caption("model_times.csv not found.")
 
-# ======================================================================================
-# Section: Saved figures
-# ======================================================================================
 st.header("Figures")
 
 def show_image(name: str, title: str):
-    """
-    Display an image from the artifacts directory.
-    Falls back to safe Pillow loading and downscaling if the direct method fails.
-    """
     path = ARTIFACTS_DIRECTORY / name
     if not path.exists():
         st.caption(f"{name} not found.")
         return
 
     st.subheader(title)
-    # Try direct display first for speed
     try:
         try:
             st.image(str(path), use_container_width=True)
         except TypeError:
-            # Older Streamlit versions
             st.image(str(path), use_column_width=True)
     except Exception:
-        # Fallback: open and downscale in memory to avoid very large images causing errors
         try:
             image = open_image_safely(path, max_side=2400)
             try:
@@ -185,9 +150,6 @@ show_image("learning_curve.png", "Learning curve for the best model")
 show_image("gb_iterations_mse.png", "Mean squared error versus iterations for Gradient Boosting")
 show_image("actual_vs_pred.png", "Actual values versus predicted values for the best model")
 
-# ======================================================================================
-# Section: Predictions
-# ======================================================================================
 st.header("Predictions (best model)")
 
 predictions_path = ARTIFACTS_DIRECTORY / "Predicted_main.csv"
@@ -197,9 +159,6 @@ if predictions_path.exists():
 else:
     st.caption("Predicted_main.csv not found.")
 
-# ======================================================================================
-# Section: Downloads
-# ======================================================================================
 st.header("Downloads")
 
 all_files = sorted(ARTIFACTS_DIRECTORY.glob("*"))
